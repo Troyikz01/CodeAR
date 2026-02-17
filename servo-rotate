@@ -1,22 +1,27 @@
 #include <Servo.h>
 
-// --- Ultrasonic Sensor Pins ---
 #define TRIG_PIN 4
 #define ECHO_PIN 7
-
-// --- Servo Pin ---
 #define SERVO_PIN 3
 
 Servo myServo;
 
+// Define positions
+const int CENTER = 90;      // default middle
+const int LEFT_LIMIT = 45;  // left boundary
+const int RIGHT_LIMIT = 135; // right boundary
+
 void setup() {
   Serial.begin(9600);
-
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
 
   myServo.attach(SERVO_PIN);
-  myServo.write(90); // start at center
+
+  // Start at center
+  myServo.write(CENTER);
+  Serial.println("Servo starting at CENTER position...");
+  delay(500); // small pause to reach center
 }
 
 long readDistance() {
@@ -32,27 +37,16 @@ long readDistance() {
 }
 
 void loop() {
-  // Sweep servo left to right quickly
-  for (int angle = 0; angle <= 180; angle += 5) { // step 5° for faster sweep
-    myServo.write(angle);
-    long distance = readDistance();
-    Serial.print("Angle: ");
-    Serial.print(angle);
-    Serial.print(" | Distance: ");
-    Serial.print(distance);
-    Serial.println(" cm");
-    delay(25); // small delay: safe fast speed
-  }
+  // Sweep LEFT to RIGHT
+  myServo.write(LEFT_LIMIT);   // jump instantly
+  delay(300);                  // give servo time to reach left
+  Serial.print("Distance at LEFT: ");
+  Serial.println(readDistance());
 
-  // Sweep servo right to left quickly
-  for (int angle = 180; angle >= 0; angle -= 5) {
-    myServo.write(angle);
-    long distance = readDistance();
-    Serial.print("Angle: ");
-    Serial.print(angle);
-    Serial.print(" | Distance: ");
-    Serial.print(distance);
-    Serial.println(" cm");
-    delay(25);
-  }
+  myServo.write(RIGHT_LIMIT);  // jump instantly
+  delay(300);                  // give servo time to reach right
+  Serial.print("Distance at RIGHT: ");
+  Serial.println(readDistance());
+
+  // Repeat sweep
 }
