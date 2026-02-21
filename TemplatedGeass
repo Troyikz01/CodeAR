@@ -1,0 +1,188 @@
+#include <Servo.h>
+#include <NewPing.h>
+
+// L298N Motor Driver
+#define ENA 5
+#define IN1 10
+#define IN2 9
+#define IN3 8
+#define IN4 7
+#define ENB 6
+
+// IR sensors
+#define IR_LEFT A0
+#define IR_RIGHT A1
+
+// Ultrasonic sensor
+#define TRIG_PIN 11
+#define ECHO_PIN 12
+#define MAX_DISTANCE 50
+
+// Servo
+#define SERVO_PIN 3
+Servo servo;
+
+// PID variables
+int baseSpeed = 150;
+float Kp = 25;
+float Ki = 0;
+float Kd = 20;
+int error = 0;
+int lastError = 0;
+float integral = 0;
+
+// Ultrasonic scanning
+int leftDistance, rightDistance;
+boolean objectOnLeft;
+
+// Line-following PID
+int leftMotorSpeed, rightMotorSpeed;
+
+NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE);
+
+void setup() {
+  Serial.begin(9600);
+
+  // Motor pins
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  // IR sensors
+  pinMode(IR_LEFT, INPUT);
+  pinMode(IR_RIGHT, INPUT);
+
+  // Servo
+  servo.attach(SERVO_PIN);
+  servo.write(90); // center
+}
+
+void loop() {
+  int leftSensor = digitalRead(IR_LEFT);
+  int rightSensor = digitalRead(IR_RIGHT);
+
+  // Obstacle detection
+  int distance = sonar.ping_cm();
+  if (distance == 0) distance = 100; // no obstacle
+  if (distance <= 15) {
+    objectAvoid();
+    return;
+  }
+
+  // ----------------- LINE FOLLOWING -----------------
+  if (leftSensor == LOW && rightSensor == LOW) error = 0; // centered
+  else if (leftSensor == LOW && rightSensor == HIGH) error = -1; // left
+  else if (leftSensor == HIGH && rightSensor == LOW) error = 1; // right
+  else if (leftSensor == HIGH && rightSensor == HIGH) { // line lost
+    searchForLine();
+    return;
+  }
+
+  integral += error;
+  int derivative = error - lastError;
+  int correction = Kp * error + Ki * integral + Kd * derivative;
+
+  leftMotorSpeed = constrain(baseSpeed + correction, 0, 255);
+  rightMotorSpeed = constrain(baseSpeed - correction, 0, 255);
+
+  moveForward(leftMotorSpeed, rightMotorSpeed);
+  lastError = error;
+}
+
+// -------------------- MOTOR FUNCTIONS --------------------
+void moveForward(int leftSpeed, int rightSpeed) {
+  analogWrite(ENA, leftSpeed);
+  analogWrite(ENB, rightSpeed);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void moveBackward(int speed) {
+  analogWrite(ENA, speed);
+  analogWrite(ENB, speed);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void stopMotors() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
+
+// -------------------- OBJECT AVOIDANCE --------------------
+void objectAvoid() {
+  stopMotors();
+  Serial.println("Obstacle detected!");
+
+  lookLeft();
+  lookRight();
+  delay(100);
+
+  if (rightDistance <= leftDistance) {
+    objectOnLeft = true;
+    turnLeft();
+  } else {
+    objectOnLeft = false;
+    turnRight();
+  }
+}
+
+void lookLeft() {
+  servo.write(150);
+  delay(300);
+  leftDistance = sonar.ping_cm();
+  if (leftDistance == 0) leftDistance = 100;
+  servo.write(90);
+  Serial.print("Left Distance: "); Serial.println(leftDistance);
+}
+
+void lookRight() {
+  servo.write(30);
+  delay(300);
+  rightDistance = sonar.ping_cm();
+  if (rightDistance == 0) rightDistance = 100;
+  servo.write(90);
+  Serial.print("Right Distance: "); Serial.println(rightDistance);
+}
+
+void turnLeft() {
+  // Turn left in place
+  analogWrite(ENA, baseSpeed);
+  analogWrite(ENB, baseSpeed);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(500);
+}
+
+void turnRight() {
+  // Turn right in place
+  analogWrite(ENA, baseSpeed);
+  analogWrite(ENB, baseSpeed);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(500);
+}
+
+// -------------------- SEARCH FOR LINE --------------------
+void searchForLine() {
+  // turn slowly in circle until line detected
+  analogWrite(ENA, baseSpeed / 2);
+  analogWrite(ENB, baseSpeed / 2);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
