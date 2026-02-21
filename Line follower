@@ -1,0 +1,96 @@
+
+// -------------------- PIN DEFINITIONS --------------------
+// L298N Motor Driver
+
+#define ENA 5
+#define IN1 10
+#define IN2 9
+#define IN3 8
+#define IN4 7
+#define ENB 6
+
+// IR Sensors
+#define IR_LEFT A0
+#define IR_RIGHT A1
+
+void setup() {
+  // Motor pins
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  // IR sensors
+  pinMode(IR_LEFT, INPUT);
+  pinMode(IR_RIGHT, INPUT);
+}
+
+// -------------------- VARIABLES --------------------
+int speedMotor = 100;   // Medium speed (0–255)
+
+// -------------------- LOOP --------------------
+void loop() {
+  int leftSensor = digitalRead(IR_LEFT);
+  int rightSensor = digitalRead(IR_RIGHT);
+
+  // LOW = Black, HIGH = White
+
+  if (leftSensor == HIGH && rightSensor == HIGH) {
+    //  Both sensors see white → stop
+    stopMotors();
+  }
+  else if (leftSensor == LOW && rightSensor == LOW) {
+    //  Both sensors see black → move forward
+    moveForward();
+  }
+  else if (leftSensor == LOW && rightSensor == HIGH) {
+    //  Left sees black → turn slightly left
+    followLeft();
+  }
+  else if (leftSensor == HIGH && rightSensor == LOW) {
+    //  Right sees black → turn slightly right
+    followRight();
+  }
+}
+
+// -------------------- IMPROVED MOTOR FUNCTIONS --------------------
+void moveForward() {
+  analogWrite(ENA, speedMotor);
+  analogWrite(ENB, speedMotor);
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void followLeft() {
+  // Slow right motor, keep left motor moving forward
+  analogWrite(ENA, speedMotor - 50); // left motor
+  analogWrite(ENB, speedMotor);     // right motor
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void followRight() {
+  // Slow left motor, keep right motor moving forward
+  analogWrite(ENA, speedMotor);     // left motor
+  analogWrite(ENB, speedMotor - 50); // right motor
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void stopMotors() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
