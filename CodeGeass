@@ -1,0 +1,170 @@
+#include <Servo.h>
+
+// -------------------- PIN DEFINITIONS --------------------
+
+// L298N Motor Driver
+#define ENA 5
+#define IN1 10
+#define IN2 9
+#define IN3 8
+#define IN4 7
+#define ENB 6
+
+// IR Sensors
+#define IR_LEFT A0
+#define IR_RIGHT A1
+
+// Ultrasonic Sensor
+#define TRIG 11
+#define ECHO 12
+
+// Servo
+#define SERVO_PIN 3
+
+Servo myServo;
+
+// -------------------- VARIABLES --------------------
+
+int speedMotor = 150;      // Base speed (0-255)
+int obstacleDistance = 15; // Obstacle detection threshold (cm)
+
+// -------------------- SETUP --------------------
+
+void setup() {
+  pinMode(ENA, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(ENB, OUTPUT);
+
+  pinMode(IR_LEFT, INPUT);
+  pinMode(IR_RIGHT, INPUT);
+
+  pinMode(TRIG, OUTPUT);
+  pinMode(ECHO, INPUT);
+
+  myServo.attach(SERVO_PIN);
+  myServo.write(90); // Center position
+
+  Serial.begin(9600);
+}
+
+// -------------------- LOOP --------------------
+
+void loop() {
+
+  int distance = getDistance();
+
+  if (distance <= obstacleDistance) {
+    avoidObstacle();
+  } else {
+    followLine();
+  }
+}
+
+// -------------------- LINE FOLLOWING FUNCTION --------------------
+
+void followLine() {
+
+  int leftSensor = digitalRead(IR_LEFT);
+  int rightSensor = digitalRead(IR_RIGHT);
+
+  // Adjust depending on your IR module (LOW = black usually)
+
+  if (leftSensor == LOW && rightSensor == LOW) {
+    moveForward();
+  }
+  else if (leftSensor == LOW && rightSensor == HIGH) {
+    turnLeft();
+  }
+  else if (leftSensor == HIGH && rightSensor == LOW) {
+    turnRight();
+  }
+  else {
+    stopMotors();
+  }
+}
+
+// -------------------- OBSTACLE AVOIDANCE --------------------
+
+void avoidObstacle() {
+
+  stopMotors();
+  delay(300);
+
+  myServo.write(30);  // Look left
+  delay(400);
+  int leftDistance = getDistance();
+
+  myServo.write(150); // Look right
+  delay(400);
+  int rightDistance = getDistance();
+
+  myServo.write(90);  // Center
+  delay(300);
+
+  if (leftDistance > rightDistance) {
+    turnLeft();
+    delay(500);
+  } else {
+    turnRight();
+    delay(500);
+  }
+}
+
+// -------------------- ULTRASONIC FUNCTION --------------------
+
+int getDistance() {
+
+  digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+
+  long duration = pulseIn(ECHO, HIGH);
+  int distance = duration * 0.034 / 2;
+
+  return distance;
+}
+
+// -------------------- MOTOR CONTROL FUNCTIONS --------------------
+
+void moveForward() {
+  analogWrite(ENA, speedMotor);
+  analogWrite(ENB, speedMotor);
+
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void turnLeft() {
+  analogWrite(ENA, speedMotor);
+  analogWrite(ENB, speedMotor);
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void turnRight() {
+  analogWrite(ENA, speedMotor);
+  analogWrite(ENB, speedMotor);
+
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void stopMotors() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
