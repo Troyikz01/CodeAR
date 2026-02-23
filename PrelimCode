@@ -1,0 +1,158 @@
+#include <Servo.h>
+#include <NewPing.h>
+
+// -------------------- L298N Motor Driver --------------------
+#define ENA 5
+#define IN1 10
+#define IN2 9
+#define IN3 8
+#define IN4 7
+#define ENB 6
+
+// -------------------- IR Sensors --------------------
+#define IR_LEFT A0
+#define IR_RIGHT A1
+
+// -------------------- Ultrasonic --------------------
+#define TRIG_PIN 11
+#define ECHO_PIN 12
+#define MAX_DISTANCE 50
+
+// -------------------- Servo --------------------
+#define SERVO_PIN 3
+Servo servo;
+
+int baseSpeed = 255;     // normal speed
+int turnSpeed = 250;     // 🔥 faster turn speed
+int leftDistance, rightDistance;
+
+NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE);
+
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  pinMode(IR_LEFT, INPUT);
+  pinMode(IR_RIGHT, INPUT);
+
+  servo.attach(SERVO_PIN);
+  servo.write(90);
+}
+
+void loop() {
+
+  int distance = sonar.ping_cm();
+  if (distance == 0) distance = 100;
+
+  if (distance <= 30) {
+    objectAvoid();
+    return;
+  }
+
+  int leftSensor = digitalRead(IR_LEFT);
+  int rightSensor = digitalRead(IR_RIGHT);
+
+  if (leftSensor == HIGH && rightSensor == HIGH) {
+    stopMotors();
+    return;
+  }
+
+  if (leftSensor == LOW && rightSensor == LOW) {
+    moveForward(baseSpeed, baseSpeed);
+  }
+  else if (leftSensor == LOW && rightSensor == HIGH) {
+    moveForward(baseSpeed / 2, baseSpeed);
+  }
+  else if (leftSensor == HIGH && rightSensor == LOW) {
+    moveForward(baseSpeed, baseSpeed / 2);
+  }
+}
+
+// -------------------- MOTOR FUNCTIONS --------------------
+
+void moveForward(int leftSpeed, int rightSpeed) {
+  analogWrite(ENA, leftSpeed);
+  analogWrite(ENB, rightSpeed);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void moveBackward(int speed) {
+  analogWrite(ENA, speed);
+  analogWrite(ENB, speed);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void stopMotors() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
+
+// -------------------- OBJECT AVOIDANCE --------------------
+
+void objectAvoid() {
+
+  stopMotors();
+
+  moveBackward(baseSpeed);
+  delay(400);
+  stopMotors();
+  delay(200);
+
+  servo.write(150);
+  delay(300);
+  leftDistance = sonar.ping_cm();
+  if (leftDistance == 0) leftDistance = 100;
+
+  servo.write(30);
+  delay(300);
+  rightDistance = sonar.ping_cm();
+  if (rightDistance == 0) rightDistance = 100;
+
+  servo.write(90);
+  delay(150);
+
+  if (leftDistance > rightDistance) {
+    turnLeft();
+  } else {
+    turnRight();
+  }
+
+  stopMotors();
+  delay(200);
+}
+
+// 🔥 FASTER TURN FUNCTIONS
+
+void turnLeft() {
+  analogWrite(ENA, turnSpeed);
+  analogWrite(ENB, turnSpeed);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(450);
+}
+
+void turnRight() {
+  analogWrite(ENA, turnSpeed);
+  analogWrite(ENB, turnSpeed);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(450);
+}
